@@ -10,16 +10,16 @@ import time
 import random
 from urllib.parse import urlparse
 
-# Filtros para ignorar enlaces que no son artículos
+# Keywords to ignore links that are not articles (e.g. unsubscribe, socials)
 IGNORE_KEYWORDS = [
-    "unsubscribe", "optout", "opt-out", "preferences", "cancelar",
-    "bajarme", "privacy", "terms", "twitter.com", "x.com", "facebook.com",
+    "unsubscribe", "optout", "opt-out", "preferences", "cancel",
+    "privacy", "terms", "twitter.com", "x.com", "facebook.com",
     "instagram.com", "linkedin.com", "youtube.com", "mailto:", "javascript:",
-    "#", "view-in-browser"
+    "#", "view-in-browser", "manage", "bajarme", "cancelar"
 ]
 
 def extract_article_links(page):
-    """Extrae enlaces relevantes a artículos del cuerpo del newsletter."""
+    """Extracts valid article links from the newsletter body."""
     links = []
     try:
         elements = page.query_selector_all("a[href]")
@@ -29,7 +29,7 @@ def extract_article_links(page):
                 continue
             href_clean = href.strip().lower()
             
-            # Filtrar enlaces de redes, desuscripción, mailto o vacíos
+            # Filter out social, unsubscribe, mailto, or empty links
             if any(keyword in href_clean for keyword in IGNORE_KEYWORDS):
                 continue
             
@@ -37,23 +37,23 @@ def extract_article_links(page):
             if parsed.scheme in ["http", "https"] and href not in links:
                 links.append(href)
     except Exception as e:
-        print(f"Error extrayendo enlaces: {e}")
+        print(f"Error extracting links: {e}")
     return links
 
 def run_test(campaign, email_link=None, on_progress=None):
     """
-    Ejecuta la prueba completa de Opens y Clicks en Desktop y Mobile.
+    Executes a complete test run of Opens and Clicks across Desktop and Mobile.
     
-    campaign: dict con keys:
+    campaign: dict with keys:
         - opens_desktop (int)
         - opens_mobile (int)
         - clicks_desktop (int)
         - clicks_mobile (int)
-        - newsletter_url (opcional si se pasa email_link)
+        - newsletter_url (optional if email_link is passed)
     """
     target_url = email_link or campaign.get("newsletter_url")
     if not target_url:
-        raise ValueError("No se proporcionó una URL de newsletter válida.")
+        raise ValueError("No valid newsletter URL was provided.")
 
     opens_desktop = int(campaign.get("opens_desktop", 0))
     opens_mobile = int(campaign.get("opens_mobile", 0))
@@ -82,10 +82,10 @@ def run_test(campaign, email_link=None, on_progress=None):
         detected_links = []
 
         # ==========================================
-        # 1. APERTURAS (OPENS) - DESKTOP
+        # 1. OPENS - DESKTOP
         # ==========================================
         if opens_desktop > 0:
-            log(f"Iniciando {opens_desktop} aperturas Desktop...")
+            log(f"Starting {opens_desktop} Desktop open(s)...")
             for i in range(opens_desktop):
                 try:
                     context = browser.new_context(
@@ -95,7 +95,7 @@ def run_test(campaign, email_link=None, on_progress=None):
                     page = context.new_page()
                     page.goto(target_url, timeout=20000, wait_until="domcontentloaded")
                     
-                    # Extraer enlaces en la primera apertura exitosa
+                    # Extract article links on first successful page load
                     if not detected_links:
                         detected_links = extract_article_links(page)
                     
@@ -105,15 +105,15 @@ def run_test(campaign, email_link=None, on_progress=None):
                     context.close()
                 except Exception as e:
                     results["opens_fail"] += 1
-                    err_msg = f"Fallo Open Desktop #{i+1}: {str(e)}"
+                    err_msg = f"Failed Desktop Open #{i+1}: {str(e)}"
                     results["details"].append(err_msg)
                     log(f"  [FAIL] {err_msg}")
 
         # ==========================================
-        # 2. APERTURAS (OPENS) - MOBILE
+        # 2. OPENS - MOBILE
         # ==========================================
         if opens_mobile > 0:
-            log(f"Iniciando {opens_mobile} aperturas Mobile...")
+            log(f"Starting {opens_mobile} Mobile open(s)...")
             for i in range(opens_mobile):
                 try:
                     context = browser.new_context(
@@ -134,23 +134,23 @@ def run_test(campaign, email_link=None, on_progress=None):
                     context.close()
                 except Exception as e:
                     results["opens_fail"] += 1
-                    err_msg = f"Fallo Open Mobile #{i+1}: {str(e)}"
+                    err_msg = f"Failed Mobile Open #{i+1}: {str(e)}"
                     results["details"].append(err_msg)
                     log(f"  [FAIL] {err_msg}")
 
         results["article_links_found"] = detected_links
-        log(f"Enlaces de artículos identificados: {len(detected_links)}")
+        log(f"Identified article links: {len(detected_links)}")
 
         # ==========================================
-        # 3. CLICS (CLICKS) - DESKTOP
+        # 3. CLICKS - DESKTOP
         # ==========================================
         if clicks_desktop > 0:
             if not detected_links:
-                log("  [WARN] No se encontraron enlaces de artículos para clics Desktop.")
+                log("  [WARN] No article links found for Desktop clicks.")
                 results["clicks_fail"] += clicks_desktop
-                results["details"].append("No se detectaron enlaces para clics Desktop")
+                results["details"].append("No article links detected for Desktop clicks")
             else:
-                log(f"Iniciando {clicks_desktop} clics Desktop...")
+                log(f"Starting {clicks_desktop} Desktop click(s)...")
                 for i in range(clicks_desktop):
                     link_to_click = detected_links[i % len(detected_links)]
                     try:
@@ -166,20 +166,20 @@ def run_test(campaign, email_link=None, on_progress=None):
                         context.close()
                     except Exception as e:
                         results["clicks_fail"] += 1
-                        err_msg = f"Fallo Click Desktop #{i+1}: {str(e)}"
+                        err_msg = f"Failed Desktop Click #{i+1}: {str(e)}"
                         results["details"].append(err_msg)
                         log(f"  [FAIL] {err_msg}")
 
         # ==========================================
-        # 4. CLICS (CLICKS) - MOBILE
+        # 4. CLICKS - MOBILE
         # ==========================================
         if clicks_mobile > 0:
             if not detected_links:
-                log("  [WARN] No se encontraron enlaces de artículos para clics Mobile.")
+                log("  [WARN] No article links found for Mobile clicks.")
                 results["clicks_fail"] += clicks_mobile
-                results["details"].append("No se detectaron enlaces para clics Mobile")
+                results["details"].append("No article links detected for Mobile clicks")
             else:
-                log(f"Iniciando {clicks_mobile} clics Mobile...")
+                log(f"Starting {clicks_mobile} Mobile click(s)...")
                 for i in range(clicks_mobile):
                     link_to_click = detected_links[i % len(detected_links)]
                     try:
@@ -197,11 +197,11 @@ def run_test(campaign, email_link=None, on_progress=None):
                         context.close()
                     except Exception as e:
                         results["clicks_fail"] += 1
-                        err_msg = f"Fallo Click Mobile #{i+1}: {str(e)}"
+                        err_msg = f"Failed Mobile Click #{i+1}: {str(e)}"
                         results["details"].append(err_msg)
                         log(f"  [FAIL] {err_msg}")
 
         browser.close()
 
-    log("Prueba finalizada.")
+    log("Execution completed.")
     return results

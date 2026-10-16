@@ -13,7 +13,7 @@ def create_tables():
     conn = get_connection()
     c = conn.cursor()
     
-    # Tabla de campañas
+    # Campaigns table
     c.execute("""
     CREATE TABLE IF NOT EXISTS campaigns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,13 +29,13 @@ def create_tables():
     )
     """)
     
-    # Migración automática si la tabla ya existía sin la columna newsletter_url
+    # Auto-migration if newsletter_url is missing
     c.execute("PRAGMA table_info(campaigns)")
     columns = [col[1] for col in c.fetchall()]
     if "newsletter_url" not in columns:
         c.execute("ALTER TABLE campaigns ADD COLUMN newsletter_url TEXT")
 
-    # Tabla de ejecuciones (reportes)
+    # Executions table (reports history)
     c.execute("""
     CREATE TABLE IF NOT EXISTS executions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +53,7 @@ def create_tables():
     conn.close()
 
 def save_execution(campaign_id, results):
-    """Guarda el resultado de una prueba en la tabla executions."""
+    """Saves a test execution result to the executions table."""
     conn = get_connection()
     c = conn.cursor()
     date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

@@ -4,51 +4,51 @@ import json
 from database import get_connection, create_tables, save_execution
 from automator import run_test
 
-# Inicializar base de datos
+# Initialize database schema
 create_tables()
 
 st.set_page_config(
-    page_title="Newsletter Tester Automator",
+    page_title="Newsletter Testing Automator",
     page_icon="📰",
     layout="wide"
 )
 
 st.title("📰 Newsletter Testing Automator")
-st.caption("Herramienta de simulación de aperturas (Opens) y clics de artículos en entornos Desktop y Mobile.")
+st.caption("Automated simulation of newsletter opens and article link clicks across Desktop and Mobile Web.")
 
-menu = st.sidebar.radio("Navegación", ["Crear Campaña", "Campañas y Ejecución", "Reportes y Resultados"])
+menu = st.sidebar.radio("Navigation", ["Create Campaign", "Campaigns & Execution", "Reports & History"])
 
 # ========================================================
-# 1. CREAR CAMPAÑA
+# 1. CREATE CAMPAIGN
 # ========================================================
-if menu == "Crear Campaña":
-    st.subheader("➕ Crear nueva campaña de pruebas")
+if menu == "Create Campaign":
+    st.subheader("➕ Create New Testing Campaign")
     
     with st.form("campaign_form", clear_on_submit=True):
-        name = st.text_input("Nombre de la Campaña", placeholder="Ej: Newsletter Tech Semanal #42")
-        newsletter_url = st.text_input("URL del Newsletter (Versión web / Tracking Link)", placeholder="https://mi-newsletter.com/p/...")
+        name = st.text_input("Campaign Name", placeholder="e.g. Tech Weekly Newsletter #42")
+        newsletter_url = st.text_input("Newsletter URL (Web version / Tracking link)", placeholder="https://newsletter-service.com/p/...")
         
         st.write("---")
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("#### 💻 Desktop Web")
-            opens_desktop = st.number_input("Opens Desktop planeados", min_value=0, max_value=500, value=10, step=1)
-            clicks_desktop = st.number_input("Clicks Desktop planeados", min_value=0, max_value=500, value=5, step=1)
+            opens_desktop = st.number_input("Planned Desktop Opens", min_value=0, max_value=500, value=10, step=1)
+            clicks_desktop = st.number_input("Planned Desktop Clicks", min_value=0, max_value=500, value=5, step=1)
             
         with col2:
             st.markdown("#### 📱 Mobile Web (iPhone)")
-            opens_mobile = st.number_input("Opens Mobile planeados", min_value=0, max_value=500, value=10, step=1)
-            clicks_mobile = st.number_input("Clicks Mobile planeados", min_value=0, max_value=500, value=5, step=1)
+            opens_mobile = st.number_input("Planned Mobile Opens", min_value=0, max_value=500, value=10, step=1)
+            clicks_mobile = st.number_input("Planned Mobile Clicks", min_value=0, max_value=500, value=5, step=1)
             
         st.write("---")
-        daily = st.checkbox("Programar ejecución diaria automática", value=True)
+        daily = st.checkbox("Schedule daily automated execution", value=True)
         
-        submitted = st.form_submit_button("💾 Guardar Campaña", use_container_width=True)
+        submitted = st.form_submit_button("💾 Save Campaign", use_container_width=True)
         
         if submitted:
             if not name.strip() or not newsletter_url.strip():
-                st.error("Por favor completa tanto el nombre como la URL del newsletter.")
+                st.error("Please provide both Campaign Name and Newsletter URL.")
             else:
                 conn = get_connection()
                 c = conn.cursor()
@@ -58,28 +58,28 @@ if menu == "Crear Campaña":
                 """, (name.strip(), newsletter_url.strip(), opens_desktop, opens_mobile, clicks_desktop, clicks_mobile, int(daily)))
                 conn.commit()
                 conn.close()
-                st.success(f"¡Campaña '{name}' creada con éxito!")
+                st.success(f"Campaign '{name}' created successfully!")
 
 # ========================================================
-# 2. CAMPAÑAS Y EJECUCIÓN MANUAL
+# 2. CAMPAIGNS & MANUAL EXECUTION
 # ========================================================
-elif menu == "Campañas y Ejecución":
-    st.subheader("📋 Campañas Registradas")
+elif menu == "Campaigns & Execution":
+    st.subheader("📋 Registered Campaigns")
     
     conn = get_connection()
     df_campaigns = pd.read_sql("SELECT * FROM campaigns ORDER BY id DESC", conn)
     conn.close()
     
     if df_campaigns.empty:
-        st.info("No hay campañas creadas aún. Dirígete a la sección 'Crear Campaña'.")
+        st.info("No campaigns found. Go to 'Create Campaign' to add one.")
     else:
         st.dataframe(df_campaigns, use_container_width=True)
         
         st.write("---")
-        st.markdown("### 🚀 Ejecución Inmediata de Campaña")
+        st.markdown("### 🚀 Run Campaign Now")
         
         campaign_options = {f"#{row['id']} - {row['name']}": row['id'] for _, row in df_campaigns.iterrows()}
-        selected_label = st.selectbox("Selecciona la campaña a ejecutar:", list(campaign_options.keys()))
+        selected_label = st.selectbox("Select campaign to run:", list(campaign_options.keys()))
         selected_id = campaign_options[selected_label]
         
         selected_campaign = df_campaigns[df_campaigns['id'] == selected_id].iloc[0].to_dict()
@@ -91,44 +91,44 @@ elif menu == "Campañas y Ejecución":
                     f"**Mobile:** {selected_campaign.get('opens_mobile')} opens | {selected_campaign.get('clicks_mobile')} clicks")
         
         with col_c2:
-            run_btn = st.button("▶️ Ejecutar Prueba Ahora", type="primary", use_container_width=True)
+            run_btn = st.button("▶️ Run Test Now", type="primary", use_container_width=True)
 
         if run_btn:
             if not selected_campaign.get("newsletter_url"):
-                st.error("Esta campaña no tiene una URL de newsletter configurada.")
+                st.error("This campaign does not have a configured newsletter URL.")
             else:
                 progress_container = st.empty()
                 status_log = []
 
                 def update_progress(msg):
                     status_log.append(msg)
-                    progress_container.text_area("Registro en vivo:", "\n".join(status_log[-12:]), height=220)
+                    progress_container.text_area("Live Execution Log:", "\n".join(status_log[-12:]), height=220)
 
-                with st.spinner("Ejecutando simulación de opens y clicks con Playwright..."):
+                with st.spinner("Simulating opens and clicks via Playwright..."):
                     try:
                         results = run_test(selected_campaign, on_progress=update_progress)
                         save_execution(selected_campaign["id"], results)
-                        st.success("¡Prueba finalizada y guardada en el historial de reportes!")
+                        st.success("Test completed and saved to execution history!")
                         
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Opens Exitosos", results["opens_success"])
-                        m2.metric("Opens Fallidos", results["opens_fail"])
-                        m3.metric("Clicks Exitosos", results["clicks_success"])
-                        m4.metric("Clicks Fallidos", results["clicks_fail"])
+                        m1.metric("Successful Opens", results["opens_success"])
+                        m2.metric("Failed Opens", results["opens_fail"])
+                        m3.metric("Successful Clicks", results["clicks_success"])
+                        m4.metric("Failed Clicks", results["clicks_fail"])
                         
                         if results.get("article_links_found"):
-                            with st.expander(f"Ver enlaces de artículos detectados ({len(results['article_links_found'])})"):
+                            with st.expander(f"Detected Article Links ({len(results['article_links_found'])})"):
                                 for link in results["article_links_found"]:
                                     st.write(f"- [{link}]({link})")
                                     
                     except Exception as e:
-                        st.error(f"Error durante la ejecución: {e}")
+                        st.error(f"Error during execution: {e}")
 
 # ========================================================
-# 3. REPORTES Y RESULTADOS
+# 3. REPORTS & RESULTS HISTORY
 # ========================================================
-elif menu == "Reportes y Resultados":
-    st.subheader("📊 Historial de Ejecuciones y Reportes")
+elif menu == "Reports & History":
+    st.subheader("📊 Execution Reports & History")
     
     conn = get_connection()
     query = """
@@ -149,35 +149,35 @@ elif menu == "Reportes y Resultados":
     conn.close()
     
     if df_exec.empty:
-        st.info("Aún no se han registrado ejecuciones de campañas.")
+        st.info("No campaign execution records found yet.")
     else:
-        # Métricas Globales
+        # Global Aggregated Metrics
         tot_opens_ok = df_exec["opens_success"].sum()
         tot_opens_fail = df_exec["opens_fail"].sum()
         tot_clicks_ok = df_exec["clicks_success"].sum()
         tot_clicks_fail = df_exec["clicks_fail"].sum()
         
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Opens OK", int(tot_opens_ok))
-        c2.metric("Total Opens Fallidos", int(tot_opens_fail), delta_color="inverse")
-        c3.metric("Total Clicks OK", int(tot_clicks_ok))
-        c4.metric("Total Clicks Fallidos", int(tot_clicks_fail), delta_color="inverse")
+        c1.metric("Total Successful Opens", int(tot_opens_ok))
+        c2.metric("Total Failed Opens", int(tot_opens_fail), delta_color="inverse")
+        c3.metric("Total Successful Clicks", int(tot_clicks_ok))
+        c4.metric("Total Failed Clicks", int(tot_clicks_fail), delta_color="inverse")
         
         st.write("---")
         st.dataframe(df_exec.drop(columns=["details"], errors="ignore"), use_container_width=True)
         
-        st.markdown("#### Detalle de Ejecuciones")
+        st.markdown("#### Execution Details")
         for _, row in df_exec.head(10).iterrows():
-            with st.expander(f"Ejecución #{row['execution_id']} - {row['campaign_name']} ({row['date']})"):
-                st.write(f"- **Opens Exitosos:** {row['opens_success']} | **Fallidos:** {row['opens_fail']}")
-                st.write(f"- **Clicks Exitosos:** {row['clicks_success']} | **Fallidos:** {row['clicks_fail']}")
+            with st.expander(f"Execution #{row['execution_id']} - {row['campaign_name']} ({row['date']})"):
+                st.write(f"- **Successful Opens:** {row['opens_success']} | **Failed Opens:** {row['opens_fail']}")
+                st.write(f"- **Successful Clicks:** {row['clicks_success']} | **Failed Clicks:** {row['clicks_fail']}")
                 try:
                     details = json.loads(row["details"]) if row["details"] else []
                     if details:
-                        st.write("**Detalles / Errores registrados:**")
+                        st.write("**Details / Logged Errors:**")
                         for d in details:
                             st.text(f"• {d}")
                     else:
-                        st.write("Sin errores reportados.")
+                        st.write("No errors reported.")
                 except Exception:
                     st.text(row["details"])
