@@ -6,6 +6,7 @@ if hasattr(sys.stdout, 'reconfigure'):
         pass
 
 import time
+import argparse
 import schedule
 import pandas as pd
 from database import get_connection, save_execution, create_tables
@@ -49,5 +50,16 @@ def start_scheduler(run_at="09:00"):
         time.sleep(30)
 
 if __name__ == "__main__":
-    run_daily_campaigns()
-    start_scheduler()
+    parser = argparse.ArgumentParser(description="Newsletter Tester Scheduler")
+    parser.add_argument("--once", action="store_true", help="Execute daily campaigns once and exit immediately (ideal for Windows Task Scheduler / Cron)")
+    parser.add_argument("--time", type=str, default="09:00", help="Time of day to run when in continuous mode (HH:MM format)")
+    args = parser.parse_args()
+
+    if args.once:
+        print("[SCHEDULER] Running in single-pass mode (--once)...")
+        run_daily_campaigns()
+        print("[SCHEDULER] Single-pass finished. Exiting.")
+        sys.exit(0)
+    else:
+        run_daily_campaigns()
+        start_scheduler(run_at=args.time)
